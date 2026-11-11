@@ -1,0 +1,240 @@
+<title>Калькулятор ціни зерна</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#2F6B3A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Зерно">
+<style>
+/* Layout: one narrow column — inputs card, result card, collapsible tariff table */
+:root {
+  --bg: #F3F5F0;
+  --surface: #FFFFFF;
+  --fg: #1C2419;
+  --muted: #5E6B5A;
+  --line: #DCE2D6;
+  --accent: #2F6B3A;
+  --accent-soft: #E3EEE2;
+  --warn: #9A5B00;
+  --warn-soft: #FBF0DD;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121611; --surface: #1B2119; --fg: #E6ECE2; --muted: #9AA894; --line: #2E372B;
+  --accent: #7BC48A; --accent-soft: #223325; --warn: #E8B05A; --warn-soft: #33281A; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121611; --surface: #1B2119; --fg: #E6ECE2; --muted: #9AA894; --line: #2E372B;
+  --accent: #7BC48A; --accent-soft: #223325; --warn: #E8B05A; --warn-soft: #33281A; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 520px; margin: 0 auto; display: grid; gap: 16px; }
+h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: 0.9rem; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 16px; }
+label, .lbl { display: block; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.field { position: relative; }
+input[type=number] {
+  width: 100%; font: 600 1.35rem var(--font-num); color: var(--fg); background: var(--bg);
+  border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 64px 12px 14px; font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.9rem; pointer-events: none; }
+.hint { font-size: 0.85rem; color: var(--muted); margin-top: 6px; min-height: 1.2em; }
+.hint.bad { color: var(--warn); }
+
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; padding: 4px; }
+.seg button {
+  font: inherit; border: 0; border-radius: 9px; padding: 10px 8px; cursor: pointer; background: transparent; color: var(--muted);
+  display: grid; gap: 1px; text-align: center;
+}
+.seg button b { font-size: 1rem; color: var(--fg); }
+.seg button span { font-size: 0.8rem; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button[aria-pressed="true"] b { color: var(--surface); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.result { border-color: var(--accent); }
+.big { font: 600 2.3rem/1.1 var(--font-num); font-variant-numeric: tabular-nums; color: var(--accent); word-break: break-word; }
+.big small { font: 500 1rem var(--font-body); color: var(--muted); }
+.result.off .big { color: var(--muted); }
+.msg { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 0.92rem; }
+.rows { display: grid; gap: 8px; font-size: 0.95rem; }
+.row { display: flex; justify-content: space-between; gap: 12px; }
+.row .v { font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row.total { border-top: 1px solid var(--line); padding-top: 8px; font-weight: 600; }
+.formula { font: 500 0.85rem var(--font-num); color: var(--muted); background: var(--bg); border-radius: 8px; padding: 8px 10px; overflow-x: auto; }
+
+details summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
+details summary::after { content: "▾"; color: var(--muted); }
+details[open] summary::after { content: "▴"; }
+.tbl { overflow-x: auto; margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+tr.hit td { background: var(--accent-soft); font-weight: 600; }
+td.use { color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .big { transition: color .2s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Калькулятор ціни зерна</h1>
+    <p class="sub">Ціна для фермера за 1 тонну, з урахуванням доставки</p>
+  </header>
+
+  <section class="card" aria-label="Вхідні дані">
+    <div>
+      <label for="price">Ціна від агрокомпанії</label>
+      <div class="field">
+        <input id="price" type="number" inputmode="decimal" min="0" step="any" value="9000">
+        <span class="unit">грн/т</span>
+      </div>
+    </div>
+    <div>
+      <label for="km">Відстань доставки</label>
+      <div class="field">
+        <input id="km" type="number" inputmode="decimal" min="0" step="any" value="180">
+        <span class="unit">км</span>
+      </div>
+      <div class="hint" id="kmHint"></div>
+    </div>
+    <div>
+      <span class="lbl" id="formLbl">Форма оплати</span>
+      <div class="seg" role="group" aria-labelledby="formLbl">
+        <button type="button" id="f1" data-form="1" aria-pressed="true"><b>Форма 1</b><span>з ПДВ</span></button>
+        <button type="button" id="f2" data-form="2" aria-pressed="false"><b>Форма 2</b><span>без ПДВ</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card result" id="result" aria-live="polite">
+    <div>
+      <span class="lbl">Ціна для фермера</span>
+      <div class="big" id="total">—</div>
+    </div>
+    <div class="msg" id="msg" hidden></div>
+    <div class="rows" id="rows"></div>
+    <div class="formula" id="formula"></div>
+  </section>
+
+  <section class="card">
+    <details id="tblBox">
+      <summary>Тарифи на доставку, грн/т</summary>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>Кілометраж</th><th>З ПДВ</th><th>Без ПДВ</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script>
+// Тарифи: [від, до, ціна з ПДВ, ціна без ПДВ] за 1 т
+const RATES = [
+  [25,50,850,750],[50,75,1000,850],[75,100,1100,950],[100,125,1300,1100],[125,150,1400,1200],
+  [150,175,1450,1250],[175,200,1600,1350],[200,225,1700,1450],[225,250,1850,1550],[250,275,1850,1550],
+  [275,300,1950,1650],[300,325,2100,1750],[325,350,2200,1850],[350,375,2250,1900],[375,400,2300,1950],
+  [400,425,2300,1950],[425,450,2350,2000],[450,475,2400,2000],[475,500,2500,2100],[500,525,2600,2200],
+  [525,550,2700,2250],[550,575,2800,2350],[575,600,2900,2450],[600,625,3000,2500],[625,650,3100,2600],
+  [650,675,3150,2650],[675,700,3800,3200]
+];
+const FEE = 500;
+let form = 1;
+try { const s = localStorage.getItem("form"); if (s === "1" || s === "2") form = +s; } catch (e) {}
+
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// 50 км → 25–50, 50,1 км → 50–75
+function findRate(km) {
+  if (!(km >= 25) || km > 700) return -1;
+  return RATES.findIndex(r => km <= r[1]);
+}
+
+function renderTable(hit) {
+  $("tbody").innerHTML = RATES.map((r, i) =>
+    `<tr class="${i === hit ? "hit" : ""}"><td>${r[0]}–${r[1]} км</td>` +
+    `<td class="${i === hit && form === 1 ? "use" : ""}">${r[2]}</td>` +
+    `<td class="${i === hit && form === 2 ? "use" : ""}">${r[3]}</td></tr>`).join("");
+}
+
+function calc() {
+  $("f1").setAttribute("aria-pressed", form === 1);
+  $("f2").setAttribute("aria-pressed", form === 2);
+  const price = parseFloat($("price").value);
+  const km = parseFloat($("km").value);
+  const idx = findRate(km);
+  const msg = $("msg"), res = $("result");
+  renderTable(idx);
+
+  let problem = "";
+  if (!(price > 0)) problem = "Введіть ціну від агрокомпанії.";
+  else if (isNaN(km)) problem = "Введіть відстань доставки.";
+  else if (idx < 0) problem = km < 25
+    ? "Відстань менша за 25 км, такого тарифу в таблиці немає."
+    : "Відстань більша за 700 км, такого тарифу в таблиці немає.";
+
+  $("kmHint").textContent = idx >= 0 ? `Тариф ${RATES[idx][0]}–${RATES[idx][1]} км` : (isNaN(km) ? "" : "Поза таблицею (25–700 км)");
+  $("kmHint").className = "hint" + (idx < 0 && !isNaN(km) ? " bad" : "");
+
+  if (problem) {
+    res.classList.add("off");
+    $("total").innerHTML = "—";
+    msg.textContent = problem; msg.hidden = false;
+    $("rows").innerHTML = ""; $("formula").textContent = form === 1
+      ? "Ціна − доставка (з ПДВ) − 500"
+      : "Ціна ÷ 1,14 − доставка (без ПДВ) ÷ 1,20 − 500";
+    return;
+  }
+  res.classList.remove("off"); msg.hidden = true;
+
+  const r = RATES[idx];
+  let lines, total, formula;
+  if (form === 1) {
+    const d = r[2];
+    total = price - d - FEE;
+    lines = [["Ціна агрокомпанії", price], ["Доставка (з ПДВ)", -d], ["Утримання", -FEE]];
+    formula = `${fmt(price)} − ${fmt(d)} − 500`;
+  } else {
+    const p = price / 1.14, d = r[3] / 1.20;
+    total = p - d - FEE;
+    lines = [["Ціна ÷ 1,14", p], ["Доставка (без ПДВ) ÷ 1,20", -d], ["Утримання", -FEE]];
+    formula = `${fmt(price)} ÷ 1,14 − ${fmt(r[3])} ÷ 1,20 − 500`;
+  }
+  $("total").innerHTML = `${fmt(total)} <small>грн/т</small>`;
+  $("rows").innerHTML = lines.map(([k, v]) =>
+    `<div class="row"><span>${k}</span><span class="v">${v < 0 ? "−" : ""}${fmt(Math.abs(v))}</span></div>`).join("") +
+    `<div class="row total"><span>Разом</span><span class="v">${fmt(total)}</span></div>`;
+  $("formula").textContent = formula;
+}
+
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  form = +b.dataset.form;
+  try { localStorage.setItem("form", form); } catch (e) {}
+  calc();
+}));
+$("price").addEventListener("input", calc);
+$("km").addEventListener("input", calc);
+calc();
+
+// Офлайн-режим: працює, коли сайт відкрито з GitHub Pages (https)
+if ("serviceWorker" in navigator && location.protocol === "https:" && location.hostname.endsWith("github.io")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
