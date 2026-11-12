@@ -199,7 +199,7 @@ function calc() {
     msg.textContent = problem; msg.hidden = false;
     $("rows").innerHTML = ""; $("formula").textContent = form === 1
       ? "Ціна − доставка (з ПДВ) − 500"
-      : "Ціна ÷ 1,14 − доставка (без ПДВ) ÷ 1,20 − 500";
+      : "Ціна ÷ 1,14 − доставка (без ПДВ) − 500";
     return;
   }
   res.classList.remove("off"); msg.hidden = true;
@@ -212,10 +212,10 @@ function calc() {
     lines = [["Ціна агрокомпанії", price], ["Доставка (з ПДВ)", -d], ["Утримання", -FEE]];
     formula = `${fmt(price)} − ${fmt(d)} − 500`;
   } else {
-    const p = price / 1.14, d = r[3] / 1.20;
+    const p = price / 1.14, d = r[3];
     total = p - d - FEE;
-    lines = [["Ціна ÷ 1,14", p], ["Доставка (без ПДВ) ÷ 1,20", -d], ["Утримання", -FEE]];
-    formula = `${fmt(price)} ÷ 1,14 − ${fmt(r[3])} ÷ 1,20 − 500`;
+    lines = [["Ціна ÷ 1,14", p], ["Доставка (без ПДВ)", -d], ["Утримання", -FEE]];
+    formula = `${fmt(price)} ÷ 1,14 − ${fmt(d)} − 500`;
   }
   $("total").innerHTML = `${fmt(total)} <small>грн/т</small>`;
   $("rows").innerHTML = lines.map(([k, v]) =>
